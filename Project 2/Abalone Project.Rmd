@@ -142,16 +142,31 @@ The dataset is limited to an abalone population in Tasmania and captures measure
 
 The dataset contains 4,177 observations across 9 variables. Each row corresponds to a single abalone. The 9 variables are sex (nominal), length (continuous), diameter (continuous), height (continuous), whole weight (continuous), shucked weight (continuous), viscera weight (continuous), shell weight (continuous), and rings (integer). 
 
-```{r summarydata}
-str(abalone_data)
+ - Sex: Male (M), Female (F), and Infant (I)
+ - Length: longest shell measurement (mm)
+ - Diameter: perpendicular to length (mm)
+ - Height: with meat in shell (mm)
+ - Whole weight: whole abalone (g)
+ - Shucked weight: weight of meat (g)
+ - Viscera weight: gut weight (after bleeding) (g)
+ - Shell weight: after being dried (g)
+ - Rings: number of major rings present +1.5 gives the age in years
+
+## Summary of the Quantitative Variables
+
+```{r summary}
+# Statistics summary
+xkablesummary(abalone_data[,2:9])
+```
+```{r cor}
+loadPkg(psych) # pair plots with histogram on diagonal and other options
+pairs.panels(abalone_data, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = FALSE,  # show density plots
+             ellipses = FALSE # show correlation ellipses
+             )
+#unloadPkg(psych)
 ```
 
-Sex: Male (M), Female (F), and Infant (I)
-Length: longest shell measurement (mm)
-Diameter: perpendicular to length (mm)
-Height: with meat in shell (mm)
-Whole weight: whole abalone (g)
-Shucked weight: weight of meat (g)
-Viscera weight: gut weight (after bleeding) (g)
-Shell weight: after being dried (g)
-Rings: number of major rings present +1.5 gives the age in years
+

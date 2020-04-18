@@ -1,0 +1,157 @@
+---
+title: "BikeGang Project 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+# knitr::opts_chunk$set(warning = F, results = 'markup', message = F)
+knitr::opts_chunk$set(warning = F, results = 'hide', message = F)
+# knitr::opts_chunk$set(include = F)
+# knitr::opts_chunk$set(echo = TRUE)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+```{r basic, include=F}
+# use this function to conveniently load libraries and work smoothly with knitting
+# can add quietly=T option to the require() function
+loadPkg = function(pkg, character.only = FALSE) { 
+  if (!character.only) { pkg <- as.character(substitute(pkg)) }
+  pkg <- ifelse(!character.only, as.character(substitute(pkg)) , pkg)  
+  if (!require(pkg,character.only=T, quietly =T)) {  install.packages(substitute(pkg),dep=T); if(!require(pkg,character.only=T)) stop("Package not found") } 
+}
+loadPkg(knitr)
+
+# unload/detact package when done using it
+unloadPkg = function(pkg, character.only = FALSE) { 
+  if(!character.only) { pkg <- as.character(substitute(pkg)) } 
+  search_item <- paste("package", pkg,sep = ":") 
+  while(search_item %in% search()) { detach(search_item, unload = TRUE, character.only = TRUE) } 
+}
+```
+
+```{r xkablesummary, include=F}
+loadPkg(xtable)
+loadPkg(kableExtra)
+loadPkg(stringi)
+
+xkabledply = function(smmry, title='Caption', pos='left') { # Thanks Ryan Longmuir for the codes
+  smmry %>%
+    xtable() %>% 
+    kable(caption = title, digits = 4) %>%
+    kable_styling(position = "center") %>%
+    kable_styling(bootstrap_options = "striped", full_width = F,
+    position = pos)
+}
+
+xkablesummary = function(df) { 
+  #' Combining base::summary, xtable, and kableExtra, to easily display numeric variable summary of dataframes. 
+  #` If the categorical variables has less than 6 levels, the function will still run without error.
+  #' ELo 202003 GWU DATS
+  #' version 1
+  #' @param df The dataframe.
+  #' @return The summary table for display, or for knitr to process into other formats 
+  #' @examples
+  #' xkablesummary( faraway::ozone )
+  #' xkablesummary( ISLR::Hitters )
+  
+  s = summary(df) %>%
+    apply( 2, function(x) stringr::str_remove_all(x,c("Min.\\s*:\\s*","1st Qu.\\s*:\\s*","Median\\s*:\\s*","Mean\\s*:\\s*","3rd Qu.\\s*:\\s*","Max.\\s*:\\s*")) ) %>% # replace all leading words
+    apply( 2, function(x) stringr::str_trim(x, "right")) # trim trailing spaces left
+  
+  colnames(s) <- stringr::str_trim(colnames(s))
+  
+  if ( dim(s)[1] ==6 ) { rownames(s) <- c('Min','Q1','Median','Mean','Q3','Max') 
+  } else if ( dim(s)[1] ==7 ) { rownames(s) <- c('Min','Q1','Median','Mean','Q3','Max','NA') }
+  
+  s %>%
+    xkabledply("Table: Statistics summary.", "center")
+
+}
+
+xkablevif = function(model) { 
+  #' Combining faraway::vif, xtable, and kableExtra, to easily display numeric summary of VIFs for a model. 
+  #' ELo 202003 GWU DATS
+  #' version 1
+  #' @param df The dataframe.
+  #' @return The summary table for display, or for knitr to process into other formats 
+  #' @examples
+  #' xkablevif( model )
+  
+  vifs = table( names(model$coefficients)[2:length(model$coefficients)] ) # remove intercept to set column names
+  vifs[] = faraway::vif(model) # set the values
+
+  vifs %>%
+    xtable() %>% 
+    kable(caption = "VIFs of the model", digits = 4, col.names = 'VIF') %>% # otherwise it will only has the generic name as 'V1' for the first vector in the table
+    kable_styling(position = "center") %>%
+    kable_styling(bootstrap_options = "striped", full_width = F,
+    position = "left")
+}
+```
+
+```{r importingdata Packages, echo = FALSE}
+abalone_data <- data.frame(read.csv("abalone.csv"))
+
+#importing packages 
+loadPkg("ggplot2")
+loadPkg("dplyr")
+loadPkg("corrplot")
+loadPkg("stats")
+loadPkg("modelr")
+loadPkg("stringr")
+loadPkg("faraway")
+loadPkg("tidyr")
+loadPkg("gridExtra")
+```
+
+# Project Introduction: 
+
+Abalone are marine snails belonging to the class Gastropoda, family Haliotidae, and genus Haliotis. Abalone are found in cold waters around most parts of the world, including the northwestern coast of the United States and Canada as well as South Africa and New Zealand. Abalone is highly sought out for its meat and is considered one of the most expensive shellfish in the world. Additionally, the abalone shell has an inner, iridescent layer that is used in decorative pieces and jewelry. The shell of the abalone is strong and is made of microscopic calcium carbonate tiles stacked like bricks and its spiral structure, common in snail shells, is flattened. Unfortunately, the abalone wild population has been declining due to many factors, such as overfishing and environmental stressors. In recent years, several countries have placed restrictions on the total number of abalone, age of abalone, and/or size of abalone that can be collected per person to combat declining populations. For example, in South Africa, the minimum legal size is 114 mm shell breadth, which is considered around 8 to 9 years of age. With this in mind, we found a public dataset on Kaggle (“Abalone Dataset”) that contains 4,177 observations across 9 variables for a population of backlip abalone. One of the most difficult tasks is estimating the age of abalone, which is normally done using shell growth rings via two techniques: the counting of external growth checks on the shell and the counting of internal growth checks within sections. In our analysis, we will analyze the relationships between the variables to then build a model to predict the age of abalone. Our analysis and model may lay the groundwork for future methods enlisted to develop policies and/or enforce restrictions on abalone fishing. 
+
+# Background Research on the Abalone Dataset: 
+
+The dataset is from UCI Machine Learning Repository. From the original data, examples with missing values were removed (the majority having the predicted value missing), and the ranges of the continuous values have been scaled for use with an ANN (by dividing by 200).
+
+Source of Dataset:
+
+Warwick J Nash, Tracy L Sellers, Simon R Talbot, Andrew J Cawthorn and Wes B Ford (1994), "The Population Biology of Abalone (Haliotis species) in Tasmania. I. Blacklip Abalone (H. rubra) from the North Coast and Islands of Bass Strait", Sea Fisheries Division, Technical Report No. 48 (ISSN 1034-3288)
+
+Original Owners of Database: 
+
+Marine Resources Division 
+Marine Research Laboratories - Taroona 
+Department of Primary Industry and Fisheries, Tasmania 
+GPO Box 619F, Hobart, Tasmania 7001, Australia 
+
+Donor of Database: 
+
+Sam Waugh (Sam.Waugh '@' cs.utas.edu.au) 
+Department of Computer Science, University of Tasmania 
+GPO Box 252C, Hobart, Tasmania 7001, Australia 
+
+2.2 Issues with the Data
+
+The dataset is limited to an abalone population in Tasmania and captures measurements for the backlip abalone (Haliotis rubra). Growth checks and layers in the shell were used to age the abalone assuming the one-layer-per-year relationship established for H. rubra in southern Tasmania. The addition of 1.5 years to the number of major growth rings was based on a finding from Prince et al. Three distinct minor layers are laid down in the first 16 months of life, with subsequent major layers being deposited annually. The 1.5 years accounts for the period during which the minor rings are deposited. The validity of this application to backlip abalone populations beyond southeast Tasmania is unknown (Nash et al, 1994, pg. 9).
+
+# Description of the Data
+
+The dataset contains 4,177 observations across 9 variables. Each row corresponds to a single abalone. The 9 variables are sex (nominal), length (continuous), diameter (continuous), height (continuous), whole weight (continuous), shucked weight (continuous), viscera weight (continuous), shell weight (continuous), and rings (integer). 
+
+```{r summarydata}
+str(abalone_data)
+```
+
+Sex: Male (M), Female (F), and Infant (I)
+Length: longest shell measurement (mm)
+Diameter: perpendicular to length (mm)
+Height: with meat in shell (mm)
+Whole weight: whole abalone (g)
+Shucked weight: weight of meat (g)
+Viscera weight: gut weight (after bleeding) (g)
+Shell weight: after being dried (g)
+Rings: number of major rings present +1.5 gives the age in years

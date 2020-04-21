@@ -152,16 +152,15 @@ The dataset contains 4,177 observations across 9 variables. Each row corresponds
  - Shell weight: after being dried (g)
  - Rings: number of major rings present +1.5 gives the age in years
 
-## Summary of the Quantitative Variables
 
 ```{r summary}
 # Add Age as Target varable -> Age = Rings + 1.5
-abalone_data$Age = abalone_data$Rings + 1.5
+# abalone_data$Age = abalone_data$Rings + 1.5
 # Remove Rings feature 
-abalone_df <- within(abalone_data,rm(Rings))
+# abalone_df <- within(abalone_data,rm(Rings))
 
 # Statistics summary
-xkablesummary(abalone_df)
+xkablesummary(abalone_data)
 #nrow(abalone_data1)
 ```
 - ALL independent variables with the exception of Abalone Sex are quantitative in nature.
@@ -169,8 +168,8 @@ xkablesummary(abalone_df)
 ### Bivariate Analysis on quantitative features
 
 ```{r cor}
-loadPkg(psych) # pair plots with histogram on diagonal and other options
-pairs.panels(abalone_df[,2:9], 
+loadPkg(psych) # pair plots with histogram on diagonal and other options [,2:9]
+pairs.panels(abalone_data, 
              method = "pearson", # correlation method
              hist.col = "#00AFBB",
              density = TRUE,  # show density plots
@@ -178,43 +177,48 @@ pairs.panels(abalone_df[,2:9],
              )
 #unloadPkg(psych)
 ```
- - The explanatory variables are highly correlated with each other which shows multicollinearity problem.
+### Correlation Analysis
  
-
 ## Analysis on the categorical variable - Sex
 
 ```{r Cat_var_sex, echo=FALSE}
-ggplot(abalone_df, aes(x= Sex, y=Age, fill=Sex))+
+ggplot(abalone_data, aes(x= Sex, y=Rings, fill=Sex))+
   geom_boxplot(alpha=0.3)+
-  labs(x="SEX", y="Age (Years)", caption = "", title = "Age Distribution of Male, Female and Infant Abalone")
+  labs(x="SEX", y="Number of rings", caption = "", title = "Number of Rings Distribution among Male, Female and Infant Abalone")
 ```
-```{r outlier}
-# remove outliers
-abalone_df<- subset(abalone_df, Height > 0)
-abalone_df<- subset(abalone_df, Age > 5 && Age < 20)
+ - The number of Rings difference between Males and Females seem to be insignificant. The I category seems to show a significant difference but this is not due to a function of Sex category rather the function of Age i.e. younger Abalones have fewer rings. 
 
-```
-## Analysis on the Height variable - Sex
+## Model Selection
 
-```{r lm1, echo=FALSE}
-# after removing highly correlated predictors 
-# Height vs Diameter ,Whole.weight - > Shucked.weight & Shell.weight 
-ml_fit <- lm(Age ~	Sex + Height + Whole.weight, data = abalone_df)
-summary(ml_fit)
-vif(ml_fit)
+### Multiple Linear Regression Model
+
+
+```{r lm1, echo=True}
+ml_model <- lm(Rings~., data = abalone_data)
+summary(ml_model)
+vif(ml_model)
 ```
- - Age = 7.49 + 1.22(whole.weight) + 24.47(Height) -  1.27(SexI) - 0.19(SexM)
+- The Variable Inflation Factors(VIF) for the model indicates multicollinearity between all factors, except for Male (1.40), Infant(1.98) and Height (3.58), which have less values (<5). The high VIF values suggests that there are redundant predictors. These variables are correlated, the standard OLS parameter estimates makes unreliable model.
+
+```{r}
+loadPkg(ggfortify)
+autoplot(ml_model, label.size=3, which=c(2,0)) #QQ plot
+```
+-This plot shows that the model residuals are not normally distributed - indicating that the linear model is not a good fit.
+
+- This figure shows that the model residuals are not normally distributed - indicating there are higher order effects that the linear model is not capturing. 
+
+### Principal components regression
+
+
+```{r PCR}
+loadPkg(pls)
+set.seed (1000)
  
- - The coefficient of whole.weight is telling us that if whole weight increases by 1 gram then the number of rings increases by 1.22 holding all others constant.
- - The coefficient of height is telling us that for each additional mm height the number of Age will increase by 24.47 holding all other constant. 
- - The coefficient of the gender category Infant is telling us that Infant has 1.27 Age less than the female abalone holding all other constant.
- - The coefficient of the male category is telling us that male has 0.19 Age less than the female abalone holding all other constant. 
+pcr_model <- pcr(Rings~., data = abalone_data, scale = TRUE, validation = "CV")
  
-```{r lm2, echo=FALSE}
-# after removing highly correlated predictors 
-# Height vs Diameter ,Whole.weight - > Shucked.weight & Shell.weight 
-ml_fit <- lm(Age ~ Height + Whole.weight, data = abalone_df)
-summary(ml_fit)
-vif(ml_fit)
+summary(pcr_model) 
 ```
  
+ 
+

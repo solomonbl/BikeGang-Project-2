@@ -154,16 +154,13 @@ The dataset contains 4,177 observations across 9 variables. Each row corresponds
 
 
 ```{r summary}
-# Add Age as Target varable -> Age = Rings + 1.5
-# abalone_data$Age = abalone_data$Rings + 1.5
-# Remove Rings feature 
-# abalone_df <- within(abalone_data,rm(Rings))
+str(abalone_data)
 
 # Statistics summary
 xkablesummary(abalone_data)
 #nrow(abalone_data1)
 ```
-- ALL independent variables with the exception of Abalone Sex are quantitative in nature.
+ 
 
 ### Bivariate Analysis on quantitative features
 
@@ -210,6 +207,15 @@ autoplot(ml_model, label.size=3, which=c(2,0)) #QQ plot
 
 ### Principal components regression
 
+```{r}
+loadPkg(dummies)
+abalone_data <- dummy.data.frame(abalone_data,"Sex")
+pca =prcomp(abalone_data, scale =TRUE)
+pca$rotation
+summary(pca)
+
+```
+
 
 ```{r PCR}
 loadPkg(pls)
@@ -218,7 +224,22 @@ set.seed (1000)
 pcr_model <- pcr(Rings~., data = abalone_data, scale = TRUE, validation = "CV")
  
 summary(pcr_model) 
+
+```
+```{r}
+#Mean square error rate
+validationplot(pcr_model,val.type = "MSEP")
+```
+
+```{r, results='show', include=T}
+#pcr_model$coefficients[1:8,1,'1 comps'] # only one coefficient for PC1, but expressed in the original variables coefficients.
+pcr_model$coefficients[1:8,1,'4 comps'] # three coefficients for PC1, PC2, and PC3, but expressed in the original variables coefficients.
+# 
+#pcr_model$fitted.values[1:5,1,'1 comps'] # the fitted values. Showing only the first five here.
+#pcr_model$fitted.values[1:5,1,'3 comps']
 ```
  
  
 
+- From the plot we achieved the minimum error rate at 4.Rather than using the orginal values with 9 features , we can reduce the dimenssion to 4 PC.  
+Reducing error rate and with smaller number of Principal components.

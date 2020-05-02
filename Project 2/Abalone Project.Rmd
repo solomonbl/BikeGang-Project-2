@@ -204,18 +204,60 @@ autoplot(ml_model, label.size=3, which=c(2,0)) #QQ plot
 -This plot shows that the model residuals are not normally distributed - indicating that the linear model is not a good fit.
 
 - This figure shows that the model residuals are not normally distributed - indicating there are higher order effects that the linear model is not capturing. 
-
-### Principal components regression
-
 ```{r}
-loadPkg(dummies)
-abalone_data <- dummy.data.frame(abalone_data,"Sex")
-pca =prcomp(abalone_data, scale =TRUE)
-pca$rotation
-summary(pca)
-
+# after removing highly correlated predictors 
+# Height vs Diameter ,Whole.weight - > Shucked.weight & Shell.weight 
+ml_model_2 <- lm(Rings ~ Sex + Height + Whole.weight, data = abalone_data)
+summary(ml_model_2)
+vif(ml_model_2)
 ```
 
+ - Age = 6.00 + 1.23(whole.weight) + 24.3(Height) -  1.27(SexI) - 0.19(SexM)
+ 
+ - The coefficient of whole.weight is telling us that if whole weight increases by 1 gram then the number of Rings increases by 1.23 holding all others constant.
+ - The coefficient of height is telling us that for each additional mm height the number of Rings will increase by 24.3 holding all other constant. 
+ - The coefficient of the gender category Infant is telling us that Infant has 1.27 Rings less than the female abalone holding all other constant.
+ - The coefficient of the male category is telling us that male has 1.19 Rings less than the female abalone holding all other constant. 
+ 
+```{r}
+autoplot(ml_model_2, label.size=3, which=c(2,0)) #QQ plot
+```
+### Principal components regression
+
+```{r pca}
+#loadPkg(dummies)
+abalone_df <- abalone_data[,2:8]
+  #dummy.data.frame(abalone_data[,1:9],"Sex")
+pca.cor =prcomp(abalone_df, scale =TRUE)
+#pca.cov =prcomp(abalone_df, scale =FALSE)
+#pca.cor$rotation
+summary(pca.cor)
+
+#pca.cov$rotation
+#summary(pca.cov)
+
+```
+```{r}
+#cumulation of variance using the sd
+pca.cor.var <- (pca.cor$sdev^2)
+pca.cor.ave <- pca.cor.var/sum(pca.cor.var)
+plot(cumsum(pca.cor.ave), xlab="Principal Component (standardized)", ylab ="Cumulative Proportion of Variance Explained",ylim=c(0,1),type="b")
+
+pca.cov.var <- (pca.cov$sdev^2)
+#pca.cov.ave <- pca.cov.var/sum(pca.cov.var)
+#plot(cumsum(pca.cov.ave), xlab="Principal Component (non-standardized)", ylab ="Cumulative Proportion of Variance Explained",ylim=c(0,1),type="b")
+
+biplot(pca.cor, scale =0)
+#biplot(pca.cov, scale =0)
+ 
+biplot(pca.cor,2:3, scale =0)
+#biplot(pca.cov,2:3, scale =0)
+ 
+biplot(pca.cor,3:4, scale =0)
+#biplot(pca.cov,3:4, scale =0)
+ 
+
+``` 
 
 ```{r PCR}
 loadPkg(pls)
@@ -238,8 +280,10 @@ pcr_model$coefficients[1:8,1,'4 comps'] # three coefficients for PC1, PC2, and P
 #pcr_model$fitted.values[1:5,1,'1 comps'] # the fitted values. Showing only the first five here.
 #pcr_model$fitted.values[1:5,1,'3 comps']
 ```
+
  
  
 
 - From the plot we achieved the minimum error rate at 4.Rather than using the orginal values with 9 features , we can reduce the dimenssion to 4 PC.  
 Reducing error rate and with smaller number of Principal components.
+
